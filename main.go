@@ -16,11 +16,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type Mahasiswa struct {
-	Nama string `json:"nama"`
-	Npm  string `json:"npm"`
-}
-
 type Urlnya struct {
 	IDUrl      uint32    `gorm:"primary_key;auto_increment" json:"id_url"`
 	LinkAsli   string    `gorm:"size:255;not null;column:link_asli" json:"link_asli"`
@@ -104,10 +99,19 @@ func ReadUserIP(r *http.Request) string {
 
 func Router() *mux.Router {
 	router := mux.NewRouter()
+	router.HandleFunc("/", RenderKeJSON(landingPage)).Methods("GET", "OPTIONS")
 	router.HandleFunc("/", RenderKeJSON(TmbhUrl)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/{url}", RenderKeJSON(LihatUrl)).Methods("GET", "OPTIONS")
 	router.HandleFunc("/go/{url}", RenderKeJSON(LihatUrlILC)).Methods("GET", "OPTIONS")
 	return router
+}
+
+func landingPage(w http.ResponseWriter, r *http.Request) {
+	m := make(map[string]interface{})
+	m["status"] = "sukses"
+	m["pesan"] = "hayo, mau ngapain? wkwkwk"
+	m["source_code"] = "https://github.com/zaLabs02/go-url-shortener"
+	json.NewEncoder(w).Encode(m)
 }
 
 func TmbhUrl(w http.ResponseWriter, r *http.Request) {
