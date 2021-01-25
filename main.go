@@ -42,13 +42,11 @@ type UrlILC struct {
 	URLAddress string `gorm:"size:255;null;column:url_address" json:"url_address"`
 }
 
-var Db *gorm.DB
-
-func config() *gorm.DB {
+func Db() *gorm.DB {
 	var err error
 	godotenv.Load(".env")
 	DBURL := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local", os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_NAME"))
-	Db, err = gorm.Open(os.Getenv("DB_DRIVER"), DBURL)
+	Db, err := gorm.Open(os.Getenv("DB_DRIVER"), DBURL)
 
 	if err != nil {
 		panic(err)
@@ -58,9 +56,9 @@ func config() *gorm.DB {
 }
 
 func MigrateKeDB() {
-	config().DropTableIfExists(&Urlnya{}, &Visitornya{})
+	Db().DropTableIfExists(&Urlnya{}, &Visitornya{})
 
-	config().AutoMigrate(&Urlnya{}, &Visitornya{})
+	Db().AutoMigrate(&Urlnya{}, &Visitornya{})
 }
 
 func JSON(w http.ResponseWriter, statusCode int, data interface{}) {
@@ -106,7 +104,6 @@ func ReadUserIP(r *http.Request) string {
 
 func Router() *mux.Router {
 	router := mux.NewRouter()
-	// router.HandleFunc("/api/mahasiswa", GetDataMhs).Methods("GET", "OPTIONS")
 	router.HandleFunc("/", RenderKeJSON(TmbhUrl)).Methods("POST", "OPTIONS")
 	router.HandleFunc("/{url}", RenderKeJSON(LihatUrl)).Methods("GET", "OPTIONS")
 	router.HandleFunc("/go/{url}", RenderKeJSON(LihatUrlILC)).Methods("GET", "OPTIONS")
@@ -127,30 +124,27 @@ func TmbhUrl(w http.ResponseWriter, r *http.Request) {
 		url.LinkPendek = r.FormValue("url_pendek")
 
 		var err error
-		err = config().Debug().Create(&url).Error
+		err = Db().Debug().Create(&url).Error
 		if err != nil {
 			ERROR(w, http.StatusInternalServerError, err)
 			return
 		}
-		// fmt.Println(r.FormValue("link_asli"))
 		m := make(map[string]interface{})
 		m["status"] = "sukses"
 		m["data"] = url
-		// responses.JSON(w, http.StatusOK, m)
 		json.NewEncoder(w).Encode(m)
 		return
 	}
 	m := make(map[string]interface{})
 	m["status"] = "error"
 	m["error"] = "key params gak ada"
-	// responses.JSON(w, http.StatusOK, m)
 	json.NewEncoder(w).Encode(m)
 }
 
 func LihatUrl(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	dt := Urlnya{}
-	err := config().Debug().Model(dt).
+	err := Db().Debug().Model(dt).
 		Where("link_pendek = ?", html.EscapeString(strings.TrimSpace(params["url"]))).Find(&dt).Error
 
 	if err != nil {
@@ -161,24 +155,18 @@ func LihatUrl(w http.ResponseWriter, r *http.Request) {
 	user.Ipnya = ReadUserIP(r)
 	user.Linknya = params["url"]
 	user.UserAgent = r.Header.Get("User-Agent")
-	err = config().Debug().Create(&user).Error
+	err = Db().Debug().Create(&user).Error
 	if err != nil {
 		ERROR(w, http.StatusInternalServerError, err)
 		return
 	}
 	http.Redirect(w, r, dt.LinkAsli, http.StatusSeeOther)
-	// m := make(map[string]interface{})
-	// m["status"] = "sukses"
-	// m["data"] = dt
-	// // responses.JSON(w, http.StatusOK, m)
-	// json.NewEncoder(w).Encode(m)
-	fmt.Println(user)
 }
 
 func LihatUrlILC(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	dt := UrlILC{}
-	err := config().Debug().
+	err := Db().Debug().
 		Raw("select url_code, url_address from urls where url_code = ?", html.EscapeString(strings.TrimSpace(params["url"]))).Find(&dt).Error
 
 	if err != nil {
@@ -189,18 +177,12 @@ func LihatUrlILC(w http.ResponseWriter, r *http.Request) {
 	user.Ipnya = ReadUserIP(r)
 	user.Linknya = params["url"]
 	user.UserAgent = r.Header.Get("User-Agent")
-	err = config().Debug().Create(&user).Error
+	err = Db().Debug().Create(&user).Error
 	if err != nil {
 		ERROR(w, http.StatusInternalServerError, err)
 		return
 	}
 	http.Redirect(w, r, dt.URLAddress, http.StatusSeeOther)
-	// m := make(map[string]interface{})
-	// m["status"] = "sukses"
-	// m["data"] = dt
-	// // responses.JSON(w, http.StatusOK, m)
-	// json.NewEncoder(w).Encode(m)
-	fmt.Println(user)
 }
 
 func main() {
